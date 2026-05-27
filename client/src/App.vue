@@ -36,7 +36,7 @@ onMounted(async () => {
     'header'
     'main'
     'player';
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 

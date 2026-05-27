@@ -10,7 +10,7 @@ npm run dev
 ```
 
 - Frontend: `http://localhost:5173`
-- API: `http://localhost:3000/api`
+- API: `http://localhost:3003/api`
 
 ## Project Structure
 
@@ -80,7 +80,7 @@ Environment variables (or `.env` file):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3000` | Server port |
+| `PORT` | `3003` | Server port |
 | `MUSIC_DIR` | `/run/media/aoralsfout/文件/学长音乐精选/` | Path to MP3 files |
 | `NODE_ENV` | `development` | `production` enables static file serving |
 | `CORS_ORIGIN` | `http://localhost:5173` | Allowed origin for CORS |
