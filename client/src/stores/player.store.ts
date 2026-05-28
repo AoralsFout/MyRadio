@@ -215,8 +215,94 @@ export const usePlayerStore = defineStore('player', () => {
     repeatMode.value = modes[(idx + 1) % modes.length]
   }
 
+  const STORAGE_KEY = 'myradio_session'
+
+  interface SavedSession {
+    queueIds: string[]
+    currentIndex: number
+    currentTime: number
+    volume: number
+    isMuted: boolean
+    repeatMode: 'off' | 'one' | 'all'
+    isShuffled: boolean
+  }
+
+  function saveSession() {
+    const data: SavedSession = {
+      queueIds: queue.value.map((s) => s.id),
+      currentIndex: currentIndex.value,
+      currentTime: currentTime.value,
+      volume: volume.value,
+      isMuted: isMuted.value,
+      repeatMode: repeatMode.value,
+      isShuffled: isShuffled.value,
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    } catch { /* storage full or unavailable */ }
+  }
+
+  function loadSession(): SavedSession | null {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return null
+      return JSON.parse(raw) as SavedSession
+    } catch { return null }
+  }
+
+  function restoreSession(librarySongs: SongMetadata[]) {
+    const saved = loadSession()
+    if (!saved || saved.queueIds.length === 0) return
+
+    const songMap = new Map(librarySongs.map((s) => [s.id, s]))
+    const restored: SongMetadata[] = []
+    for (const id of saved.queueIds) {
+      const song = songMap.get(id)
+      if (song) restored.push(song)
+    }
+    if (restored.length === 0) return
+
+    queue.value = restored
+    currentIndex.value = Math.min(saved.currentIndex, restored.length - 1)
+    volume.value = saved.volume
+    isMuted.value = saved.isMuted
+    repeatMode.value = saved.repeatMode
+    isShuffled.value = saved.isShuffled
+
+    if (audio) audio.volume = isMuted.value ? 0 : volume.value
+
+    const song = queue.value[currentIndex.value]
+    if (song && audio) {
+      audio.src = streamUrl(song.id)
+      audio.load()
+      const seekTarget = Math.min(saved.currentTime, song.duration || 0)
+      audio.addEventListener(
+        'loadedmetadata',
+        () => { audio!.currentTime = seekTarget },
+        { once: true },
+      )
+    }
+  }
+
   watch(volume, (v) => {
     if (audio && !isMuted.value) audio.volume = v
+    saveSession()
+  })
+
+  watch(isMuted, () => saveSession())
+  watch(repeatMode, () => saveSession())
+  watch(isShuffled, () => saveSession())
+  watch([currentIndex, () => queue.value.map((s) => s.id)], () => {
+    saveSession()
+  }, { deep: true })
+
+  // Throttled time save (every 5s)
+  let lastSaveTime = 0
+  watch(currentTime, (t) => {
+    if (t - lastSaveTime > 5) {
+      lastSaveTime = t
+      saveSession()
+    }
   })
 
   function formatTime(seconds: number): string {
@@ -253,5 +339,7 @@ export const usePlayerStore = defineStore('player', () => {
     toggleShuffle,
     setRepeatMode,
     getAudioElement: () => audio,
+    saveSession,
+    restoreSession,
   }
 })

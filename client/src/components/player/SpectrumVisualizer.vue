@@ -31,9 +31,9 @@ function drawBars(ctx: CanvasRenderingContext2D, w: number, h: number, data: Uin
 
   for (let i = 0; i < HALF; i++) {
     const raw = (data[i] / maxRaw) * level
-    if (raw < 0.02) continue
+    // if (raw < 0.02) continue
     const val = Math.pow(raw, 0.7)
-    const barH = Math.max(10, h * 0.92 * val)
+    const barH = Math.max(1, h * 0.92 * val)
 
     for (const side of [-1, 1]) {
       const x = centerX + side * (i * barW + barW / 2)
@@ -42,16 +42,17 @@ function drawBars(ctx: CanvasRenderingContext2D, w: number, h: number, data: Uin
       grad.addColorStop(0, 'rgba(224, 231, 255, 1)')
       grad.addColorStop(0.1, 'rgba(165, 180, 252, 0.8)')
       grad.addColorStop(0.4, 'rgba(129, 140, 248, 0.3)')
-      grad.addColorStop(0.7, 'rgba(99, 102, 241, 0.06)')
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0)')
+      grad.addColorStop(0.7, 'rgba(99, 102, 241, 0.12)')
+      grad.addColorStop(1, 'rgba(99, 102, 241, 0.08)')
 
       ctx.save()
       ctx.shadowColor = 'rgba(129, 140, 248, 0.55)'
       ctx.shadowBlur = blurRadius
       ctx.fillStyle = grad
-      const bw = barW * 0.55
+      const bw = barW
       ctx.beginPath()
-      ctx.roundRect(x - bw / 2, h - barH, bw, barH, bw / 2)
+      ctx.rect(x - bw / 2, h - barH, bw, barH)
+      // ctx.roundRect(x - bw / 2, h - barH, bw, barH, bw / 2)
       ctx.fill()
       ctx.restore()
 
@@ -61,7 +62,7 @@ function drawBars(ctx: CanvasRenderingContext2D, w: number, h: number, data: Uin
       const coreGrad = ctx.createLinearGradient(0, h, 0, h - barH)
       coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)')
       coreGrad.addColorStop(0.3, 'rgba(199, 210, 254, 0.4)')
-      coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
+      coreGrad.addColorStop(1, 'rgba(165, 180, 252, 0.1)')
       ctx.fillStyle = coreGrad
       ctx.beginPath()
       ctx.roundRect(x - 0.75, h - barH * 0.7, 1.5, barH * 0.7, 1)
@@ -120,7 +121,7 @@ function drawFade() {
   fadeLevel -= 0.03
   drawBars(ctx, w, h, lastData, Math.max(0, fadeLevel))
 
-  if (fadeLevel > 0) {
+  if (fadeLevel > 0.1) {
     animId = requestAnimationFrame(drawFade)
   }
 }

@@ -12,6 +12,7 @@ const player = usePlayerStore()
 onMounted(async () => {
   await library.fetchSongs()
   player.initAudio()
+  player.restoreSession(library.songs)
 })
 </script>
 
@@ -56,7 +57,7 @@ onMounted(async () => {
   bottom: var(--player-height);
   left: 0;
   right: 0;
-  height: 64px;
+  height: 100px;
   z-index: 50;
   pointer-events: none;
 }
