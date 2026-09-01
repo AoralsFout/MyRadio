@@ -1,158 +1,191 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAudioAnalyzer } from '@/composables/useAudioAnalyzer'
 import { usePlayerStore } from '@/stores/player.store'
 
-const BAR_COUNT = 96
-const HALF = BAR_COUNT / 2
+const POINT_COUNT = 72
+const DECAY_EPSILON = 0.002
+const SPECTRUM_INSET = 0
 
-const { frequencyData, init } = useAudioAnalyzer(BAR_COUNT)
+const { frequencyData, init } = useAudioAnalyzer(POINT_COUNT)
 const player = usePlayerStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-let animId = 0
-let fadeLevel = 0
-// Snapshot of last frame data for fade-out
-let lastData = new Uint8Array(BAR_COUNT)
 
-function clearCanvas(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  ctx.clearRect(0, 0, w, h)
-}
+const levels = new Float32Array(POINT_COUNT)
+let animationId = 0
+let resizeObserver: ResizeObserver | null = null
+let width = 0
+let height = 0
+let reducedMotion = false
 
-function drawBars(ctx: CanvasRenderingContext2D, w: number, h: number, data: Uint8Array, level: number) {
-  const barW = w / BAR_COUNT
-  const centerX = w / 2
-  const blurRadius = Math.max(barW * 1.8, 8)
-
-  // Per-frame normalization: tallest bar always reaches near full height
-  let maxRaw = 1
-  for (let i = 0; i < HALF; i++) {
-    if (data[i] > maxRaw) maxRaw = data[i]
-  }
-
-  for (let i = 0; i < HALF; i++) {
-    const raw = (data[i] / maxRaw) * level
-    // if (raw < 0.02) continue
-    const val = Math.pow(raw, 0.7)
-    const barH = Math.max(1, h * 0.92 * val)
-
-    for (const side of [-1, 1]) {
-      const x = centerX + side * (i * barW + barW / 2)
-
-      const grad = ctx.createLinearGradient(0, h, 0, h - barH)
-      grad.addColorStop(0, 'rgba(224, 231, 255, 1)')
-      grad.addColorStop(0.1, 'rgba(165, 180, 252, 0.8)')
-      grad.addColorStop(0.4, 'rgba(129, 140, 248, 0.3)')
-      grad.addColorStop(0.7, 'rgba(99, 102, 241, 0.12)')
-      grad.addColorStop(1, 'rgba(99, 102, 241, 0.08)')
-
-      ctx.save()
-      ctx.shadowColor = 'rgba(129, 140, 248, 0.55)'
-      ctx.shadowBlur = blurRadius
-      ctx.fillStyle = grad
-      const bw = barW
-      ctx.beginPath()
-      ctx.rect(x - bw / 2, h - barH, bw, barH)
-      // ctx.roundRect(x - bw / 2, h - barH, bw, barH, bw / 2)
-      ctx.fill()
-      ctx.restore()
-
-      ctx.save()
-      ctx.shadowColor = 'rgba(224, 231, 255, 0.45)'
-      ctx.shadowBlur = blurRadius * 1.6
-      const coreGrad = ctx.createLinearGradient(0, h, 0, h - barH)
-      coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)')
-      coreGrad.addColorStop(0.3, 'rgba(199, 210, 254, 0.4)')
-      coreGrad.addColorStop(1, 'rgba(165, 180, 252, 0.1)')
-      ctx.fillStyle = coreGrad
-      ctx.beginPath()
-      ctx.roundRect(x - 0.75, h - barH * 0.7, 1.5, barH * 0.7, 1)
-      ctx.fill()
-      ctx.restore()
-    }
-  }
-}
-
-function drawLive() {
+function resizeCanvas() {
   const canvas = canvasRef.value
   if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
 
-  const dpr = window.devicePixelRatio || 1
   const rect = canvas.getBoundingClientRect()
-  const w = rect.width * dpr
-  const h = rect.height * dpr
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w
-    canvas.height = h
-  }
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  width = rect.width
+  height = rect.height
+  canvas.width = Math.round(width * dpr)
+  canvas.height = Math.round(height * dpr)
 
-  clearCanvas(ctx, w, h)
+  const ctx = canvas.getContext('2d')
+  ctx?.setTransform(dpr, 0, 0, dpr, 0, 0)
+}
 
+function updateLevels() {
   const data = frequencyData.value
-  lastData = new Uint8Array(data)
-  fadeLevel = 1
-  drawBars(ctx, w, h, data, 1)
+  let hasSignal = false
 
-  animId = requestAnimationFrame(drawLive)
-}
-
-function drawFade() {
-  if (fadeLevel <= 0) {
-    fadeLevel = 0
-    return
+  for (let i = 0; i < POINT_COUNT; i++) {
+    const normalized = Math.max(0, data[i] / 255 - 0.025)
+    const shaped = Math.min(1, Math.pow(normalized * 1.85, 0.92))
+    const target = player.isPlaying && !reducedMotion ? shaped : 0
+    const easing = target > levels[i] ? 0.32 : 0.085
+    levels[i] += (target - levels[i]) * easing
+    if (levels[i] > DECAY_EPSILON) hasSignal = true
   }
 
+  return hasSignal
+}
+
+function traceSpectrum(
+  ctx: CanvasRenderingContext2D,
+  baseline: number,
+  amplitude: number,
+) {
+  const horizontalPadding = SPECTRUM_INSET
+  const usableWidth = Math.max(1, width - horizontalPadding * 2)
+  const points: Array<{ x: number; y: number }> = []
+
+  for (let i = 0; i < POINT_COUNT; i++) {
+    const x = horizontalPadding + (i / (POINT_COUNT - 1)) * usableWidth
+    const edgeFade = 0.1 + 0.9 * Math.pow(
+      Math.sin((i / (POINT_COUNT - 1)) * Math.PI),
+      0.42,
+    )
+    const frequencyTilt = 1 - (i / POINT_COUNT) * 0.18
+    const y = baseline - levels[i] * amplitude * edgeFade * frequencyTilt
+    points.push({ x, y })
+  }
+
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  for (let i = 1; i < points.length - 1; i++) {
+    const current = points[i]
+    const next = points[i + 1]
+    ctx.quadraticCurveTo(
+      current.x,
+      current.y,
+      (current.x + next.x) / 2,
+      (current.y + next.y) / 2,
+    )
+  }
+  const last = points[points.length - 1]
+  ctx.lineTo(last.x, last.y)
+}
+
+function drawTuner(ctx: CanvasRenderingContext2D, baseline: number) {
+  const padding = SPECTRUM_INSET
+  const usableWidth = width - padding * 2
+
+  ctx.save()
+  ctx.strokeStyle = 'rgba(141, 157, 255, 0.13)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(padding, baseline + 0.5)
+  ctx.lineTo(width - padding, baseline + 0.5)
+  ctx.stroke()
+
+  for (let i = 0; i <= 32; i++) {
+    const x = padding + (i / 32) * usableWidth
+    const major = i % 4 === 0
+    ctx.strokeStyle = major
+      ? 'rgba(242, 166, 90, 0.2)'
+      : 'rgba(141, 157, 255, 0.11)'
+    ctx.beginPath()
+    ctx.moveTo(x + 0.5, baseline - (major ? 10 : 8))
+    ctx.lineTo(x + 0.5, baseline - (major ? 4 : 6))
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function drawFrame() {
   const canvas = canvasRef.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
+  const ctx = canvas?.getContext('2d')
+  if (!canvas || !ctx || width <= 0 || height <= 0) return
 
-  const dpr = window.devicePixelRatio || 1
-  const rect = canvas.getBoundingClientRect()
-  const w = rect.width * dpr
-  const h = rect.height * dpr
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w
-    canvas.height = h
-  }
+  ctx.clearRect(0, 0, width, height)
+  const baseline = height - 0.5
+  const amplitude = Math.max(18, height - 8)
+  const hasSignal = updateLevels()
 
-  clearCanvas(ctx, w, h)
-  fadeLevel -= 0.03
-  drawBars(ctx, w, h, lastData, Math.max(0, fadeLevel))
+  drawTuner(ctx, baseline)
 
-  if (fadeLevel > 0.1) {
-    animId = requestAnimationFrame(drawFade)
+  traceSpectrum(ctx, baseline, amplitude)
+  const fill = ctx.createLinearGradient(0, 4, 0, baseline)
+  fill.addColorStop(0, 'rgba(141, 157, 255, 0.02)')
+  fill.addColorStop(0.62, 'rgba(141, 157, 255, 0.07)')
+  fill.addColorStop(1, 'rgba(242, 166, 90, 0.12)')
+  ctx.lineTo(width - SPECTRUM_INSET, baseline)
+  ctx.lineTo(SPECTRUM_INSET, baseline)
+  ctx.closePath()
+  ctx.fillStyle = fill
+  ctx.fill()
+
+  traceSpectrum(ctx, baseline, amplitude)
+  ctx.save()
+  ctx.strokeStyle = 'rgba(242, 166, 90, 0.13)'
+  ctx.lineWidth = 7
+  ctx.shadowColor = 'rgba(242, 166, 90, 0.2)'
+  ctx.shadowBlur = 14
+  ctx.stroke()
+  ctx.restore()
+
+  traceSpectrum(ctx, baseline, amplitude)
+  const line = ctx.createLinearGradient(0, 0, width, 0)
+  line.addColorStop(0, 'rgba(141, 157, 255, 0.46)')
+  line.addColorStop(0.12, 'rgba(141, 157, 255, 0.72)')
+  line.addColorStop(0.5, 'rgba(255, 205, 151, 0.96)')
+  line.addColorStop(0.88, 'rgba(141, 157, 255, 0.72)')
+  line.addColorStop(1, 'rgba(141, 157, 255, 0.46)')
+  ctx.strokeStyle = line
+  ctx.lineWidth = 1.35
+  ctx.stroke()
+
+  if (player.isPlaying || hasSignal) {
+    animationId = requestAnimationFrame(drawFrame)
   }
 }
 
-watch(
-  () => player.isPlaying,
-  (playing) => {
-    cancelAnimationFrame(animId)
-    if (playing) {
-      init()
-      drawLive()
-    } else if (fadeLevel > 0) {
-      drawFade()
-    }
-  },
-)
+function startDrawing() {
+  cancelAnimationFrame(animationId)
+  if (player.isPlaying) init()
+  drawFrame()
+}
+
+watch(() => player.isPlaying, startDrawing)
 
 onMounted(() => {
-  if (player.isPlaying) {
-    init()
-    drawLive()
-  }
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  resizeObserver = new ResizeObserver(() => {
+    resizeCanvas()
+    startDrawing()
+  })
+  if (canvasRef.value) resizeObserver.observe(canvasRef.value)
+  resizeCanvas()
+  startDrawing()
 })
 
 onUnmounted(() => {
-  cancelAnimationFrame(animId)
+  cancelAnimationFrame(animationId)
+  resizeObserver?.disconnect()
 })
 </script>
 
 <template>
-  <canvas ref="canvasRef" class="spectrum-canvas" />
+  <canvas ref="canvasRef" class="spectrum-canvas" aria-hidden="true" />
 </template>
 
 <style scoped>

@@ -7,6 +7,7 @@ import { coverUrl } from '@/api/client'
 
 const props = defineProps<{
   song: SongMetadata
+  index: number
 }>()
 
 const player = usePlayerStore()
@@ -35,11 +36,13 @@ function onClick() {
 </script>
 
 <template>
-  <div
+  <button
+    type="button"
     class="song-card"
     :class="{ active: isActive }"
     @click="onClick"
   >
+    <span class="track-number">{{ (index + 1).toString().padStart(2, '0') }}</span>
     <div class="card-cover">
       <img
         v-if="song.hasCover"
@@ -61,7 +64,7 @@ function onClick() {
         <circle cx="18" cy="16" r="3"/>
       </svg>
       <div class="card-overlay" :class="{ playing: isCurrentlyPlaying }">
-        <svg v-if="!isCurrentlyPlaying" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
+        <svg v-if="!isCurrentlyPlaying" viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
           <path d="M8 5v14l11-7z"/>
         </svg>
         <div v-else class="playing-indicator">
@@ -72,33 +75,56 @@ function onClick() {
     <div class="card-body">
       <div class="card-title" :title="song.title">{{ song.title }}</div>
       <div class="card-artist" :title="song.artist">{{ song.artist }}</div>
-      <span class="card-duration">{{ formatDuration(song.duration) }}</span>
     </div>
-  </div>
+    <span class="card-album" :title="song.album">{{ song.album || '未知专辑' }}</span>
+    <span class="card-year">{{ song.year || '—' }}</span>
+    <span class="card-duration">{{ formatDuration(song.duration) }}</span>
+  </button>
 </template>
 
 <style scoped>
 .song-card {
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 42px 54px minmax(160px, 1.6fr) minmax(120px, 0.9fr) 64px 64px;
+  align-items: center;
+  gap: 14px;
+  min-height: 70px;
+  padding: 8px 14px 8px 4px;
+  border-bottom: 1px solid var(--color-border-soft);
+  border-radius: 10px;
+  text-align: left;
   cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
+  transition: background 0.2s, transform 0.2s, border-color 0.2s;
   animation: fadeIn 0.3s ease;
 }
 
 .song-card:hover {
-  background: var(--color-surface-hover);
-  box-shadow: var(--shadow-md);
+  background: rgba(255, 255, 255, 0.045);
+  transform: translateX(4px);
 }
 
 .song-card.active {
-  box-shadow: 0 0 0 2px var(--color-accent);
+  background: linear-gradient(90deg, rgba(242, 166, 90, 0.13), rgba(242, 166, 90, 0.025));
+  border-color: rgba(242, 166, 90, 0.3);
+}
+
+.track-number {
+  color: var(--color-text-muted);
+  font: 500 11px/1 var(--font-mono);
+  text-align: center;
+}
+
+.song-card.active .track-number,
+.song-card.active .card-title {
+  color: var(--color-accent);
 }
 
 .card-cover {
   position: relative;
-  aspect-ratio: 1;
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
   background: var(--color-bg);
   overflow: hidden;
 }
@@ -110,7 +136,7 @@ function onClick() {
 }
 
 .cover-img.placeholder {
-  padding: 20%;
+  padding: 28%;
   color: var(--color-text-muted);
 }
 
@@ -120,7 +146,7 @@ function onClick() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(5, 7, 12, 0.58);
   opacity: 0;
   transition: opacity 0.2s;
   color: #fff;
@@ -132,7 +158,7 @@ function onClick() {
 
 .card-overlay.playing {
   opacity: 1;
-  background: rgba(99, 102, 241, 0.3);
+  background: rgba(242, 166, 90, 0.42);
 }
 
 .playing-indicator {
@@ -143,24 +169,23 @@ function onClick() {
 }
 
 .playing-indicator .bar {
-  width: 3px;
+  width: 2px;
   background: #fff;
   border-radius: 2px;
   animation: pulse 1s ease infinite;
 }
 
-.playing-indicator .bar:nth-child(1) { height: 12px; }
-.playing-indicator .bar:nth-child(2) { height: 24px; animation-delay: 0.2s; }
-.playing-indicator .bar:nth-child(3) { height: 16px; animation-delay: 0.4s; }
+.playing-indicator .bar:nth-child(1) { height: 9px; }
+.playing-indicator .bar:nth-child(2) { height: 17px; animation-delay: 0.2s; }
+.playing-indicator .bar:nth-child(3) { height: 12px; animation-delay: 0.4s; }
 
 .card-body {
-  padding: 10px 12px;
-  position: relative;
+  min-width: 0;
 }
 
 .card-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 650;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -168,32 +193,38 @@ function onClick() {
 }
 
 .card-artist {
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 11px;
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 36px;
 }
 
+.card-album,
+.card-year,
 .card-duration {
-  position: absolute;
-  bottom: 10px;
-  right: 12px;
-  font-size: 11px;
+  overflow: hidden;
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-@media (max-width: 480px) {
-  .card-body {
-    padding: 8px 10px;
-  }
-  .card-title {
-    font-size: 12px;
-  }
-  .card-artist {
-    font-size: 11px;
-  }
+.card-year,
+.card-duration {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .song-card { grid-template-columns: 30px 48px minmax(0, 1fr) 48px; gap: 10px; min-height: 64px; padding-right: 8px; }
+  .card-cover { width: 48px; height: 48px; }
+  .card-album, .card-year { display: none; }
+}
+
+@media (max-width: 420px) {
+  .song-card { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+  .track-number { display: none; }
 }
 </style>

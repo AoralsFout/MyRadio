@@ -19,9 +19,10 @@ const songs = computed(() => library.displaySongs)
     />
     <div v-else class="song-grid">
       <SongCard
-        v-for="song in songs"
+        v-for="(song, index) in songs"
         :key="song.id"
         :song="song"
+        :index="index"
       />
     </div>
   </div>
@@ -29,15 +30,14 @@ const songs = computed(() => library.displaySongs)
 
 <style scoped>
 .song-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 24px;
 }
 
 @media (max-width: 640px) {
   .song-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 10px;
+    padding-top: 6px;
   }
 }
 </style>

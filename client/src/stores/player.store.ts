@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch, markRaw } from 'vue'
 import type { SongMetadata } from '@/types'
-import { streamUrl } from '@/api/client'
+import { coverUrl, streamUrl } from '@/api/client'
 
 export const usePlayerStore = defineStore('player', () => {
   const queue = ref<SongMetadata[]>([])
@@ -16,6 +16,7 @@ export const usePlayerStore = defineStore('player', () => {
   const repeatMode = ref<'off' | 'one' | 'all'>('all')
 
   let audio: HTMLAudioElement | null = null
+  let mediaSessionReady = false
 
   const currentSong = computed<SongMetadata | null>(() => {
     if (currentIndex.value < 0 || currentIndex.value >= queue.value.length)
@@ -41,6 +42,7 @@ export const usePlayerStore = defineStore('player', () => {
 
     audio.addEventListener('timeupdate', () => {
       currentTime.value = audio!.currentTime
+      updateMediaPosition()
     })
     audio.addEventListener('progress', () => {
       if (!audio) return
@@ -58,13 +60,16 @@ export const usePlayerStore = defineStore('player', () => {
     audio.addEventListener('loadedmetadata', () => {
       if (audio && isFinite(audio.duration)) {
         duration.value = audio.duration
+        updateMediaPosition()
       }
     })
     audio.addEventListener('play', () => {
       isPlaying.value = true
+      setMediaPlaybackState('playing')
     })
     audio.addEventListener('pause', () => {
       isPlaying.value = false
+      setMediaPlaybackState('paused')
     })
     audio.addEventListener('ended', () => {
       handleEnded()
@@ -73,6 +78,98 @@ export const usePlayerStore = defineStore('player', () => {
       console.warn('[player] Audio error, skipping...')
       handleEnded()
     })
+
+    initMediaSession()
+  }
+
+  function hasMediaSession(): boolean {
+    return typeof navigator !== 'undefined' && 'mediaSession' in navigator
+  }
+
+  function setMediaPlaybackState(state: MediaSessionPlaybackState) {
+    if (!hasMediaSession()) return
+    navigator.mediaSession.playbackState = state
+  }
+
+  function updateMediaMetadata(song: SongMetadata | null) {
+    if (!hasMediaSession() || typeof MediaMetadata === 'undefined') return
+
+    if (!song) {
+      navigator.mediaSession.metadata = null
+      return
+    }
+
+    const artwork = song.hasCover
+      ? [{ src: new URL(coverUrl(song.id), window.location.origin).href }]
+      : []
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title,
+      artist: song.artist || '未知歌手',
+      album: song.album || 'MyRadio',
+      artwork,
+    })
+  }
+
+  function updateMediaPosition() {
+    if (!hasMediaSession() || !('setPositionState' in navigator.mediaSession)) return
+    if (!audio || !isFinite(audio.duration) || audio.duration <= 0) return
+
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate,
+        position: Math.max(0, Math.min(audio.currentTime, audio.duration)),
+      })
+    } catch {
+      // Some browsers expose Media Session before position state is available.
+    }
+  }
+
+  function initMediaSession() {
+    if (!hasMediaSession() || mediaSessionReady) return
+    mediaSessionReady = true
+
+    const setHandler = (
+      action: MediaSessionAction,
+      handler: MediaSessionActionHandler,
+    ) => {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler)
+      } catch {
+        // Ignore actions that are not implemented by the current browser.
+      }
+    }
+
+    setHandler('play', () => {
+      audio?.play().catch(() => {})
+    })
+    setHandler('pause', () => audio?.pause())
+    setHandler('previoustrack', () => prevTrack())
+    setHandler('nexttrack', () => nextTrack())
+    setHandler('seekbackward', (details) => {
+      seek(currentTime.value - (details.seekOffset ?? 10))
+    })
+    setHandler('seekforward', (details) => {
+      seek(currentTime.value + (details.seekOffset ?? 10))
+    })
+    setHandler('seekto', (details) => {
+      if (details.seekTime == null || !audio) return
+      if (details.fastSeek && 'fastSeek' in audio) {
+        audio.fastSeek(details.seekTime)
+        currentTime.value = details.seekTime
+      } else {
+        seek(details.seekTime)
+      }
+      updateMediaPosition()
+    })
+    setHandler('stop', () => {
+      audio?.pause()
+      seek(0)
+      setMediaPlaybackState('none')
+    })
+
+    updateMediaMetadata(currentSong.value)
   }
 
   function handleEnded() {
@@ -90,6 +187,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (!audio) initAudio()
     audio!.src = streamUrl(song.id)
     audio!.load()
+    updateMediaMetadata(song)
     audio!.play().catch((e) => console.warn('[player] Play blocked:', e))
   }
 
@@ -176,6 +274,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (!audio) return
     audio.currentTime = Math.max(0, Math.min(time, duration.value || 0))
     currentTime.value = audio.currentTime
+    updateMediaPosition()
   }
 
   function setVolume(vol: number) {
@@ -295,6 +394,8 @@ export const usePlayerStore = defineStore('player', () => {
   watch([currentIndex, () => queue.value.map((s) => s.id)], () => {
     saveSession()
   }, { deep: true })
+
+  watch(currentSong, (song) => updateMediaMetadata(song))
 
   // Throttled time save (every 5s)
   let lastSaveTime = 0

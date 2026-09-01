@@ -1,17 +1,8 @@
 <script setup lang="ts">
 import { usePlayerStore } from '@/stores/player.store'
-import { computed } from 'vue'
 
 const player = usePlayerStore()
-
-const repeatIcon = computed(() => {
-  if (player.repeatMode === 'one') return '🔂'
-  if (player.repeatMode === 'all') return '🔁'
-  return '➡️'
-})
 </script>
-
-import { computed } from 'vue'
 
 <template>
   <div class="player-controls">
@@ -71,23 +62,25 @@ import { computed } from 'vue'
 .player-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .ctrl-btn {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   color: var(--color-text-secondary);
-  transition: color 0.2s;
+  transition: color 0.2s, background 0.2s, transform 0.15s;
   position: relative;
 }
 
 .ctrl-btn:hover {
   color: var(--color-text);
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
 }
 
 .ctrl-btn.active {
@@ -95,19 +88,22 @@ import { computed } from 'vue'
 }
 
 .play-btn {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: var(--color-accent);
-  color: #fff;
-  transition: background 0.2s, transform 0.1s;
+  color: var(--color-accent-ink);
+  box-shadow: 0 5px 20px var(--color-accent-glow);
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
 }
 
 .play-btn:hover {
   background: var(--color-accent-hover);
+  transform: scale(1.04);
+  box-shadow: 0 7px 24px rgba(242, 166, 90, 0.3);
 }
 
 .play-btn:active {

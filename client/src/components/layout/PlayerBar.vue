@@ -30,15 +30,17 @@ const player = usePlayerStore()
 <style scoped>
 .player-bar {
   height: var(--player-height);
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
+  background: rgba(12, 16, 26, 0.9);
+  border-top: 1px solid rgba(154, 169, 203, 0.14);
+  box-shadow: 0 -18px 42px rgba(5, 7, 12, 0.12);
+  backdrop-filter: blur(24px);
   z-index: 100;
   display: flex;
   align-items: center;
 }
 
 .player-bar.inactive {
-  opacity: 0.5;
+  opacity: 0.65;
   pointer-events: none;
 }
 
@@ -46,12 +48,12 @@ const player = usePlayerStore()
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 0 24px;
-  gap: 16px;
+  padding: 0 clamp(20px, 4vw, 64px);
+  gap: clamp(16px, 3vw, 40px);
 }
 
 .player-left {
-  width: 240px;
+  width: min(27vw, 310px);
   flex-shrink: 0;
 }
 
@@ -60,13 +62,13 @@ const player = usePlayerStore()
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  max-width: 600px;
+  gap: 6px;
+  max-width: 680px;
   margin: 0 auto;
 }
 
 .player-right {
-  width: 180px;
+  width: min(18vw, 190px);
   flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
@@ -74,20 +76,24 @@ const player = usePlayerStore()
 
 @media (max-width: 768px) {
   .player-bar-inner {
-    padding: 0 12px;
+    padding: 0 14px;
     gap: 8px;
+    align-items: center;
   }
   .player-left {
-    width: 140px;
+    width: 145px;
   }
   .player-right {
-    width: auto;
+    display: none;
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 540px) {
   .player-left {
-    display: none;
+    width: 112px;
+  }
+  .player-center {
+    min-width: 0;
   }
 }
 </style>

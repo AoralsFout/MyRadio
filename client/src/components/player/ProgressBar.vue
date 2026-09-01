@@ -114,44 +114,44 @@ function formatTime(seconds: number): string {
 .progress-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
 }
 
 .time {
-  font-size: 11px;
+  font-size: 9px;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
-  min-width: 36px;
+  min-width: 32px;
   text-align: center;
 }
 
 .progress-bar {
   flex: 1;
   cursor: pointer;
-  padding: 6px 0;
+  padding: 8px 0;
   touch-action: none;
   user-select: none;
 }
 
 .progress-track {
-  height: 4px;
-  background: var(--color-border);
-  border-radius: 2px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
   position: relative;
   transition: height 0.15s;
 }
 
 .progress-bar:hover .progress-track {
-  height: 6px;
+  height: 5px;
 }
 
 .progress-buffered {
   position: absolute;
   top: 0;
   height: 100%;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
 }
 
 .progress-fill {
@@ -160,7 +160,7 @@ function formatTime(seconds: number): string {
   left: 0;
   height: 100%;
   background: var(--color-accent);
-  border-radius: 2px;
+  border-radius: 999px;
   transition: width 0.1s linear;
 }
 
@@ -173,7 +173,8 @@ function formatTime(seconds: number): string {
   top: 50%;
   width: 12px;
   height: 12px;
-  background: var(--color-text);
+  background: var(--color-accent);
+  box-shadow: 0 0 0 4px var(--color-accent-glow);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   opacity: 0;
@@ -183,5 +184,10 @@ function formatTime(seconds: number): string {
 .progress-bar:hover .progress-thumb,
 .progress-thumb.active {
   opacity: 1;
+}
+
+@media (max-width: 540px) {
+  .progress-wrap { gap: 5px; }
+  .time { min-width: 26px; font-size: 8px; }
 }
 </style>

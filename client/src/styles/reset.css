@@ -9,6 +9,7 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
 }
 
 body {
@@ -17,6 +18,7 @@ body {
   color: var(--color-text);
   line-height: 1.5;
   overflow: hidden;
+  min-width: 320px;
 }
 
 ul, ol {
@@ -34,6 +36,18 @@ button {
   cursor: pointer;
   font: inherit;
   color: inherit;
+}
+
+button,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
 }
 
 input {

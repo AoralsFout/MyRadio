@@ -30,11 +30,11 @@ watch(
     <input
       v-model="input"
       type="text"
-      placeholder="搜索歌曲、歌手或专辑..."
+      placeholder="搜索曲目 / 歌手 / 专辑"
       class="search-input"
       @input="onInput(($event.target as HTMLInputElement).value)"
     />
-    <button v-if="input" class="clear-btn" @click="input = ''; library.setSearch('')">
+    <button v-if="input" class="clear-btn" aria-label="清除搜索" @click="input = ''; library.setSearch('')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
         <line x1="18" y1="6" x2="6" y2="18"/>
         <line x1="6" y1="6" x2="18" y2="18"/>
@@ -47,16 +47,18 @@ watch(
 .search-bar {
   display: flex;
   align-items: center;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 0 12px;
-  gap: 8px;
-  transition: border-color 0.2s;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 999px;
+  padding: 0 14px;
+  gap: 10px;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
 
 .search-bar:focus-within {
   border-color: var(--color-accent);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 4px var(--color-accent-glow);
 }
 
 .search-icon {
@@ -69,8 +71,8 @@ watch(
   background: none;
   border: none;
   outline: none;
-  padding: 8px 0;
-  font-size: 14px;
+  padding: 10px 0;
+  font-size: 12px;
   color: var(--color-text);
 }
 

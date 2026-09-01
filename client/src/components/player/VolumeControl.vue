@@ -83,7 +83,7 @@ function onTouchStart(e: TouchEvent) {
 .volume-control {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .volume-btn {
@@ -98,7 +98,7 @@ function onTouchStart(e: TouchEvent) {
 }
 
 .volume-btn:hover {
-  color: var(--color-text);
+  color: var(--color-accent);
 }
 
 .volume-bar {
@@ -110,9 +110,9 @@ function onTouchStart(e: TouchEvent) {
 }
 
 .volume-track {
-  height: 4px;
-  background: var(--color-border);
-  border-radius: 2px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
   position: relative;
 }
 
@@ -123,7 +123,7 @@ function onTouchStart(e: TouchEvent) {
 .volume-fill {
   height: 100%;
   background: var(--color-text-secondary);
-  border-radius: 2px;
+  border-radius: 999px;
 }
 
 .volume-bar:hover .volume-fill {
